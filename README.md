@@ -80,8 +80,7 @@ form_checker/
 ├── research/              # Biomechanics research & experiments
 ├── data/                  # Videos & annotations (not in git)
 ├── scripts/               # Standalone scripts
-├── docs/                  # Documentation
-└── CLAUDE.md             # Development guide
+└── docs/                  # Documentation
 ```
 
 ## Development Roadmap
@@ -96,8 +95,7 @@ form_checker/
 
 ## Documentation
 
-- See [CLAUDE.md](CLAUDE.md) for complete development guide
-- See `docs/` folder for detailed documentation (coming soon)
+Detailed documentation coming soon in the `docs/` folder.
 
 ## License
 
@@ -105,7 +103,7 @@ form_checker/
 
 ## Author
 
-Nicholas Yee
+Nathan Yee
 UC Santa Cruz - Computer Engineering
 
 ---
