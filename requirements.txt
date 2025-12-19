@@ -1,0 +1,22 @@
+# Core Dependencies for AI Workout Form Checker
+# Install with: pip install -r requirements.txt
+# Using flexible versioning (>=) for better Python 3.12+ compatibility
+
+# Computer Vision & ML
+mediapipe==0.10.14        # Pose estimation - allow newer versions for Python 3.12
+opencv-python>=4.8.0     # Video processing
+numpy>=1.26.0            # Mathematical operations
+scipy>=1.11.0            # Signal processing (Week 5)
+
+# API Framework (Week 4)
+fastapi>=0.104.0         # Modern async web framework
+uvicorn>=0.24.0          # ASGI server
+python-multipart>=0.0.6  # File upload handling
+pydantic>=2.5.0          # Data validation (v2.x only)
+
+# Testing (Week 2+)
+pytest>=7.4.0            # Testing framework
+httpx>=0.25.0            # HTTP client for API tests
+
+# Utilities
+python-dotenv>=1.0.0     # Environment variable management
