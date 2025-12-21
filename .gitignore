@@ -1,0 +1,81 @@
+# Claude Code (keep local only)
+.claude/
+CLAUDE.md
+.claude.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Data files (videos are large!)
+data/videos/*.mp4
+data/videos/*.mov
+data/videos/*.avi
+*.mp4
+*.mov
+*.avi
+
+# But keep directory structure
+!data/videos/.gitkeep
+!tests/fixtures/.gitkeep
+
+# Temporary files
+*.log
+*.tmp
+temp/
+tmp/
+.env
+
+# Research papers (don't commit PDFs)
+research/biomechanics/papers/*.pdf
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# API keys and secrets
+.env
+credentials.json
+secrets/
+
+# OS
+.DS_Store
+Thumbs.db

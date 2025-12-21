@@ -17,6 +17,7 @@ p3 = Point(0, 1, 0)
 angle = calculate_angle(p1, p2 ,p3)
 print(f"90 degree test: {angle:.1f} degrees")
 
+# test 180 degree angle
 p1 = Point(1, 0, 0)
 p2 = Point(0, 0, 0)
 p3 = Point(-1, 0, 0)

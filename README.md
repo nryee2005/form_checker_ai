@@ -4,8 +4,9 @@
 
 ## Project Status
 
-**Current Phase:** Week 0 - Initial Setup
+**Current Phase:** Week 2 - Pose Pipeline (60% complete)
 **Status:** 🚧 In Development
+**Last Updated:** 2025-12-21
 
 ## Overview
 
@@ -14,10 +15,11 @@ An AI-powered workout form analyzer that provides real-time feedback on exercise
 ### Core Features (MVP)
 - ✅ Pose detection using MediaPipe
 - ✅ Biomechanical angle calculations
-- ✅ Research-backed form evaluation
-- ✅ Actionable feedback generation
-- ✅ Video annotation with skeleton overlay
-- ✅ REST API for video analysis
+- 🔄 Video I/O utilities (4/6 functions complete)
+- ⏳ Research-backed form evaluation
+- ⏳ Actionable feedback generation
+- ⏳ Video annotation with skeleton overlay
+- ⏳ REST API for video analysis
 
 ### Initial Focus
 - **Exercise:** Squat (expanding to others post-MVP)
@@ -27,8 +29,8 @@ An AI-powered workout form analyzer that provides real-time feedback on exercise
 ## Tech Stack
 
 **Backend/ML:**
-- Python 3.10+
-- MediaPipe 0.10.8 (pose estimation)
+- Python 3.12.2
+- MediaPipe 0.10.14 (pose estimation)
 - OpenCV 4.8+ (video processing)
 - NumPy 1.26+ (angle calculations)
 - SciPy 1.11+ (signal processing)
@@ -85,8 +87,8 @@ form_checker/
 
 ## Development Roadmap
 
-- [ ] **Week 1:** Proof of Concept - MediaPipe integration & research
-- [ ] **Week 2:** Pose Pipeline - Video processing & angle extraction
+- [x] **Week 1:** Proof of Concept - MediaPipe integration & research
+- [~] **Week 2:** Pose Pipeline - Video processing & angle extraction (60% complete)
 - [ ] **Week 3:** Analysis Engine - Form scoring & feedback
 - [ ] **Week 4:** API - FastAPI endpoints
 - [ ] **Week 5:** Optimization - Performance tuning (**MVP Complete**)
