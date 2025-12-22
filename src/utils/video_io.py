@@ -5,7 +5,7 @@ Video I/O utility module for reading and writing video files
 import cv2
 import numpy as np
 from pathlib import Path
-from typing import List, Generator, Dict, Optional, Tuple
+from typing import List, Generator
 
 def validate_video_file(path: str) -> bool:
     """Takes in a video file path and verifies that it exists and is openable
@@ -75,26 +75,50 @@ def get_video_info(path: str) -> dict:
     return vid_info
     
     
-def iterate_frames(path: str) -> Generator[np.ndarray, None, None]:
-    """_summary_
+def iterate_frames(path: str, frame_skip: int = 0) -> Generator[np.ndarray, None, None]:
+    """Generator that yields frames one at a time
 
     Args:
-        path (str): _description_
+        path (str): Video file path
+        frame_skip (int): Number of frames to skip
 
     Yields:
-        Generator[np.ndarray, None, None]: _description_
+        np.ndarray: Video frame as numpy array (height, width, channels)    
     """
+    if frame_skip < 0:
+        raise ValueError(f"frame_skip must be non-negative, got {frame_skip}")
+    
+    cap = read_video(path)
+    frame_counter = 0
+    
+    try:
+        while True:
+            success, frame = cap.read()        
+            if not success:
+                break
+            
+            if frame_counter % (frame_skip + 1) == 0:
+                yield frame
+            
+            frame_counter += 1
+    finally:
+        cap.release()
 
-def extract_frames(path: str, max_frames: Optional[int] = None) -> List[np.ndarray]:
-    """_summary_
+def extract_frames(path: str, frame_skip: int = 0) -> List[np.ndarray]:
+    """Extracts all frames from video file path
 
+    WARNING: Loads entire video into memory. For large videos, use
+    iterate_frames() instead to process frames one at a time.
     Args:
-        path (str): _description_
-        max_frames (Optional[int], optional): _description_. Defaults to None.
+        path (str): Video file path
+        frame_skip (int): Number of frames to skip
 
     Returns:
-        List[np.ndarray]: _description_
+        List[np.ndarray]: Extracted list of frames from video
     """
+    
+    return list(iterate_frames(path, frame_skip))
+    
     
 def write_video(path: str, frames: List[np.ndarray], fps: int, codec: str = "mp4v") -> None:
     """Writes the input frames to a new video file
