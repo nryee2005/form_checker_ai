@@ -53,6 +53,17 @@ class PoseDetector:
             return results.pose_landmarks.landmark
 
         return None
+    
+    def detect_with_landmarks(self, frame: np.ndarray):
+        """Process RGB frame and return full pose_landmarks object or None.
+          
+        Use this when you need to draw the pose skeleton.
+        
+        Returns:
+            pose_landmarks object (has .landmark attribute) or None
+        """
+        results = self.pose.process(frame)
+        return results.pose_landmarks 
 
     def __del__(self):
         """Clean up MediaPipe resources."""
