@@ -13,6 +13,39 @@ from src.utils.video_io import (read_video,
 from src.features.geometry import calculate_angle
 from src.pose.detector import PoseDetector
 
+ANGLES_CONFIG = [
+    {
+        'name': 'knee_left',
+        'display': 'L Knee',
+        'landmarks': [23, 25, 27],  # Hip → Knee → Ankle
+        'color': (0, 255, 0),       # Green
+    },
+    {
+        'name': 'knee_right',
+        'display': 'R Knee',
+        'landmarks': [24, 26, 28],
+        'color': (0, 255, 0),
+    },
+    {
+        'name': 'hip_left',
+        'display': 'L Hip',
+        'landmarks': [11, 23, 25],  # Shoulder → Hip → Knee
+        'color': (255, 165, 0),     # Orange
+    },
+    {
+        'name': 'hip_right',
+        'display': 'R Hip',
+        'landmarks': [12, 24, 26],
+        'color': (255, 165, 0),
+    },
+    {
+        'name': 'back_left',
+        'display': 'L Back',
+        'landmarks': [11, 23, 27],  # Shoulder → Hip → Ankle
+        'color': (255, 0, 255),     # Magenta
+    },
+]
+
 def process_video(
     video_path: str,
     output_path: Optional[str] = None,
@@ -59,47 +92,32 @@ def process_video(
 
     for frame in iterate_frames(video_path, frame_skip):
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        landmarks = detector.detect(frame_rgb)
+        pose_landmarks = detector.detect_with_landmarks(frame_rgb)
         
-        if not landmarks:
+        if not pose_landmarks:
             frames_processed += 1
             if visualize:
                 output_frames.append(frame)
             continue
         
-        # Check visibility of each knee
-        left_knee_visible = check_visibility(landmarks, [23, 25, 27])
-        right_knee_visible = check_visibility(landmarks, [24, 26, 28])
-        
-        if left_knee_visible:
-            # Left knee angle: Hip → Knee → Ankle
-            left_knee_angle = calculate_angle(
-                landmarks[23],  # LEFT_HIP
-                landmarks[25],  # LEFT_KNEE
-                landmarks[27]   # LEFT_ANKLE
-            )
-        else:
-            left_knee_angle = None 
+        landmarks = pose_landmarks.landmark
+        frame_angles = {}
 
-        if right_knee_visible:
-            # Right knee angle: Hip → Knee → Ankle
-            right_knee_angle = calculate_angle(
-                landmarks[24],  # RIGHT_HIP
-                landmarks[26],  # RIGHT_KNEE
-                landmarks[28]   # RIGHT_ANKLE
-            )
-        else:
-            right_knee_angle = None
+        for angle_config in ANGLES_CONFIG:
+            # Check visibility
+            if check_visibility(landmarks, angle_config['landmarks']):
+                # Calculate angle
+                angle = calculate_angle(
+                    landmarks[angle_config['landmarks'][0]],
+                    landmarks[angle_config['landmarks'][1]],
+                    landmarks[angle_config['landmarks'][2]]
+                )
+                frame_angles[angle_config['name']] = angle
+            else:
+                frame_angles[angle_config['name']] = None
         
-        # Append angle data from frame to the data list
-        angles_data.append({
-            "frame": frames_processed, 
-            "knee_left": left_knee_angle, 
-            "knee_right": right_knee_angle
-        })
-        
+        # Append annotated frame if visualize=True
         if visualize:
-            pose_landmarks = detector.detect_with_landmarks(frame_rgb)
             annotated_frame = frame.copy()
             
             mp_drawing.draw_landmarks(
@@ -109,11 +127,35 @@ def process_video(
                 landmark_drawing_spec=mp_drawing_styles.get_default_pose_landmarks_style()
             )
             
+            # Add text for all angles
+            y_position = 30
+            for angle_config in ANGLES_CONFIG:
+                angle_value = frame_angles.get(angle_config['name'])
+
+                if angle_value is not None:
+                    cv2.putText(
+                        annotated_frame,
+                        f"{angle_config['display']}: {angle_value:.1f} deg",
+                        (10, y_position),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.7,
+                        angle_config['color'],
+                        2
+                    )
+                    y_position += 30
+            
             output_frames.append(annotated_frame)
             
         frames_processed += 1
         poses_detected += 1
         
+        # Store data after frame count incremented
+        angles_data.append({
+            "frame": frames_processed,
+            **frame_angles  # Unpack all angles into dict
+        })
+        
+    # Write output video
     if visualize and output_path and output_frames:
         write_video(
             output_path,

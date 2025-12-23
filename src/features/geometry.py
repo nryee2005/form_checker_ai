@@ -24,6 +24,8 @@ def calculate_angle(point_a: Any, point_b: Any, point_c: Any) -> float:
     ba = a - b
     bc = c - b
     
+    if np.linalg.norm(ba) == 0 or np.linalg.norm(bc) == 0:
+        raise ValueError("Divide by vector with magnitude 0")
     # Calculate the cosine of the angle using the dot product
     cos_theta = np.dot(ba, bc) / (np.linalg.norm(ba) * np.linalg.norm(bc))
     # Clip to handle floating point errors
