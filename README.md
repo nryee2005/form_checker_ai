@@ -100,15 +100,8 @@ form_checker/
 
 Detailed documentation coming soon in the `docs/` folder.
 
-## License
-
-[Add your license here]
-
 ## Author
 
 Nathan Yee
-UC Santa Cruz - Computer Engineering
-
----
-
-**Note:** This project is currently under active development as part of a portfolio-building initiative.
+UC Santa Cruz 
+BS Computer Engineering
