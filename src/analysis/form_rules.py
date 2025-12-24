@@ -5,6 +5,7 @@ Based on research from:
 Straub RK, Powers CM. "A Biomechanical Review of the Squat Exercise."
 IJSPT 2024;19(4):490-501.
 """
+
 from typing import Dict, List, Tuple
 from .models import FormViolation, Severity
 
@@ -14,7 +15,7 @@ SPINE_NEUTRAL_CONFIG = {
     'max_total_range': 35,
     'butt_wink_hip_threshold': 60,
     'butt_wink_back_change': 30,
-    'min_consecutive_frames': 2,  # Require N consecutive frames to trigger sudden change violation
+    'min_consecutive_frames': 2,
 }
 
 # Squat depth thresholds (knee angle)
@@ -50,18 +51,16 @@ TIBIA_INCLINATION_CONFIG = {
 
 
 def _average_bilateral(left: List, right: List) -> List:
-    """Average bilateral angles, handling None values.
+    """Average bilateral angles, handling None values
 
     Args:
-        left: Left side angle measurements (may contain None)
-        right: Right side angle measurements (may contain None)
+        left (List): Left side angle measurements (may contain None)
+        right (List): Right side angle measurements (may contain None)
 
     Returns:
-        Averaged angles with None handling:
-        - Both valid: average
-        - One None: use valid value
-        - Both None: None
+        List: Averaged angles with None handling
     """
+
     result = []
     for l, r in zip(left, right):
         if l is not None and r is not None:
@@ -76,21 +75,22 @@ def _average_bilateral(left: List, right: List) -> List:
 
 
 def _filter_outliers(values: List, percentile_range: float = 0.1) -> List:
-    """Remove statistical outliers from angle measurements.
+    """Remove statistical outliers from angle measurements
 
     Uses percentile-based filtering to remove extreme values.
     Handles MediaPipe detection glitches that create extreme angle spikes.
 
     Args:
-        values: List of angle values (may contain None)
-        percentile_range: Fraction to trim from each tail (default: 0.1 = remove top/bottom 10%)
+        values (List): List of angle values (may contain None)
+        percentile_range (float): Fraction to trim from each tail (default 0.1)
 
     Returns:
-        List with outliers removed, preserving None values
+        List: List with outliers removed, preserving None values
     """
+
     valid = [x for x in values if x is not None]
 
-    if len(valid) < 10:  # Need at least 10 points for meaningful percentile filtering
+    if len(valid) < 10:
         return values
 
     # Sort and calculate percentile bounds
@@ -99,7 +99,7 @@ def _filter_outliers(values: List, percentile_range: float = 0.1) -> List:
     lower_idx = int(n * percentile_range)
     upper_idx = int(n * (1 - percentile_range))
 
-    if lower_idx >= upper_idx:  # Too few data points
+    if lower_idx >= upper_idx:
         return values
 
     lower_bound = sorted_valid[lower_idx]
@@ -113,25 +113,26 @@ def _filter_outliers(values: List, percentile_range: float = 0.1) -> List:
         elif lower_bound <= val <= upper_bound:
             filtered.append(val)
         else:
-            filtered.append(None)  # Replace outliers with None
+            filtered.append(None)
 
     return filtered
 
 
 def check_spine_neutral(angles: Dict[str, List[float]]) -> List[FormViolation]:
-    """Check if spine remains neutral throughout squat.
+    """Check if spine remains neutral throughout squat
 
     Uses proxy measures since we can't directly measure spine curvature:
-    - Sudden changes in back angle (>12° between frames)
+    - Sudden changes in back angle (>20° between frames)
     - Butt wink pattern (deep hip + large back angle change)
     - Excessive total range of back angle motion
 
     Args:
-        angles (Dict[str, List[float]]): Dict with 'back_left', 'hip_left', etc.
+        angles (Dict[str, List[float]]): Dict with back_left, hip_left, etc.
 
     Returns:
         List[FormViolation]: List of violations found (empty if passed)
     """
+
     violations = []
 
     back_left = angles.get('back_left')
@@ -194,7 +195,7 @@ def check_spine_neutral(angles: Dict[str, List[float]]) -> List[FormViolation]:
     hip_left = angles.get('hip_left', [])
     hip_right = angles.get('hip_right', [])
 
-    # Average both sides for hip angle (same approach as back angle)
+    # Average both sides for hip angle
     if hip_left and hip_right:
         hip_left_filtered = _filter_outliers(hip_left)
         hip_right_filtered = _filter_outliers(hip_right)
@@ -252,19 +253,20 @@ def check_spine_neutral(angles: Dict[str, List[float]]) -> List[FormViolation]:
 
 
 def check_squat_depth(angles: Dict[str, List[float]]) -> List[FormViolation]:
-    """Check if squat depth is appropriate and safe.
+    """Check if squat depth is appropriate and safe
 
     Evaluates minimum knee angle achieved during squat:
-    - Ideal: 70-90° (thigh parallel)
-    - Acceptable: 45-110° (shallow to deep)
-    - Too deep: <45° (joint stress risk)
+    - Ideal: 60-100° (thigh parallel)
+    - Acceptable: 40-120° (shallow to deep)
+    - Too deep: <40° (joint stress risk)
 
     Args:
-        angles (Dict[str, List[float]]): Dict with 'knee_left', 'knee_right'
+        angles (Dict[str, List[float]]): Dict with knee_left, knee_right
 
     Returns:
         List[FormViolation]: List of violations found
     """
+
     violations = []
 
     knee_left = angles.get('knee_left', [])
@@ -303,7 +305,6 @@ def check_squat_depth(angles: Dict[str, List[float]]) -> List[FormViolation]:
 
     # Evaluate depth zones
     if SQUAT_DEPTH_CONFIG['ideal_min'] <= min_knee <= SQUAT_DEPTH_CONFIG['ideal_max']:
-        # Ideal depth - positive feedback
         violations.append(FormViolation(
             rule_name='depth_ideal',
             severity=Severity.LOW,
@@ -313,7 +314,6 @@ def check_squat_depth(angles: Dict[str, List[float]]) -> List[FormViolation]:
             details={'min_knee': min_knee}
         ))
     elif SQUAT_DEPTH_CONFIG['acceptable_min'] <= min_knee < SQUAT_DEPTH_CONFIG['ideal_min']:
-        # Deep squat - acceptable but watch form
         violations.append(FormViolation(
             rule_name='depth_deep',
             severity=Severity.LOW,
@@ -323,7 +323,6 @@ def check_squat_depth(angles: Dict[str, List[float]]) -> List[FormViolation]:
             details={'min_knee': min_knee}
         ))
     elif SQUAT_DEPTH_CONFIG['ideal_max'] < min_knee <= SQUAT_DEPTH_CONFIG['acceptable_max']:
-        # Shallow squat - could go deeper
         violations.append(FormViolation(
             rule_name='depth_shallow',
             severity=Severity.MEDIUM,
@@ -333,7 +332,6 @@ def check_squat_depth(angles: Dict[str, List[float]]) -> List[FormViolation]:
             details={'min_knee': min_knee}
         ))
     elif min_knee < SQUAT_DEPTH_CONFIG['danger_threshold']:
-        # Too deep - safety concern
         violations.append(FormViolation(
             rule_name='depth_excessive',
             severity=Severity.HIGH,
@@ -343,7 +341,6 @@ def check_squat_depth(angles: Dict[str, List[float]]) -> List[FormViolation]:
             details={'min_knee': min_knee}
         ))
     else:
-        # Very shallow - barely squatting
         violations.append(FormViolation(
             rule_name='depth_very_shallow',
             severity=Severity.HIGH,
@@ -357,17 +354,18 @@ def check_squat_depth(angles: Dict[str, List[float]]) -> List[FormViolation]:
 
 
 def check_hip_angle(angles: Dict[str, List[float]]) -> List[FormViolation]:
-    """Check if hip flexion is within safe range.
+    """Check if hip flexion is within safe range
 
-    Hip angle below ~70° may trigger posterior pelvic tilt (butt wink).
+    Hip angle below ~60° may trigger posterior pelvic tilt (butt wink).
     Should be checked in combination with spine angle.
 
     Args:
-        angles (Dict[str, List[float]]): Dict with 'hip_left', 'hip_right'
+        angles (Dict[str, List[float]]): Dict with hip_left, hip_right
 
     Returns:
         List[FormViolation]: List of violations found
     """
+
     violations = []
 
     hip_left = angles.get('hip_left', [])
@@ -393,7 +391,6 @@ def check_hip_angle(angles: Dict[str, List[float]]) -> List[FormViolation]:
 
     # Evaluate hip flexion zones
     if min_hip >= HIP_ANGLE_CONFIG['ideal_min']:
-        # Good hip depth
         violations.append(FormViolation(
             rule_name='hip_angle_good',
             severity=Severity.LOW,
@@ -403,7 +400,6 @@ def check_hip_angle(angles: Dict[str, List[float]]) -> List[FormViolation]:
             details={'min_hip': min_hip}
         ))
     elif HIP_ANGLE_CONFIG['danger_threshold'] <= min_hip < HIP_ANGLE_CONFIG['watch_threshold']:
-        # Warning zone - watch for butt wink
         violations.append(FormViolation(
             rule_name='hip_angle_deep',
             severity=Severity.MEDIUM,
@@ -413,7 +409,6 @@ def check_hip_angle(angles: Dict[str, List[float]]) -> List[FormViolation]:
             details={'min_hip': min_hip}
         ))
     elif min_hip < HIP_ANGLE_CONFIG['danger_threshold']:
-        # Excessive hip flexion
         violations.append(FormViolation(
             rule_name='hip_angle_excessive',
             severity=Severity.HIGH,
@@ -427,10 +422,10 @@ def check_hip_angle(angles: Dict[str, List[float]]) -> List[FormViolation]:
 
 
 def check_trunk_inclination(angles: Dict[str, List[float]]) -> List[FormViolation]:
-    """Check if trunk forward lean is reasonable.
+    """Check if trunk forward lean is reasonable
 
     Note: This check requires trunk angle from vertical, which is not
-    currently calculated in the pipeline. This is a placeholder for future enhancement.
+    currently calculated in the pipeline. This is a placeholder.
 
     Args:
         angles (Dict[str, List[float]]): Dict with angle data
@@ -438,16 +433,16 @@ def check_trunk_inclination(angles: Dict[str, List[float]]) -> List[FormViolatio
     Returns:
         List[FormViolation]: Empty list (not implemented yet)
     """
+
     # TODO: Implement when trunk-from-vertical angle is added to pipeline
-    # Would need to calculate angle between shoulder-hip line and vertical axis
     return []
 
 
 def check_tibia_inclination(angles: Dict[str, List[float]]) -> List[FormViolation]:
-    """Check tibia forward angle (mostly informational).
+    """Check tibia forward angle (mostly informational)
 
     Note: This check requires tibia angle from vertical, which is not
-    currently calculated in the pipeline. This is a placeholder for future enhancement.
+    currently calculated in the pipeline. This is a placeholder.
 
     Args:
         angles (Dict[str, List[float]]): Dict with angle data
@@ -455,21 +450,21 @@ def check_tibia_inclination(angles: Dict[str, List[float]]) -> List[FormViolatio
     Returns:
         List[FormViolation]: Empty list (not implemented yet)
     """
+
     # TODO: Implement when tibia-from-vertical angle is added to pipeline
-    # Would need to calculate angle between knee-ankle line and vertical axis
     return []
 
 
 def evaluate_form(angles: Dict[str, List[float]]) -> List[FormViolation]:
-    """Main entry point - runs all form rule checks.
+    """Main entry point - runs all form rule checks
 
     Args:
-        angles (Dict[str, List[float]]): Dict with keys like 'knee_left', 'hip_left', 'back_left'
-            Values are lists of angles (degrees) per frame.
+        angles (Dict[str, List[float]]): Dict with keys like knee_left, hip_left, back_left
 
     Returns:
         List[FormViolation]: List of all violations found across all rules
     """
+
     all_violations = []
 
     # Run all rule checks (order by priority)

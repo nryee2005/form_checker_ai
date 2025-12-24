@@ -1,8 +1,7 @@
 """
-Main entry point for video form analysis.
-
-Orchestrates pose detection, angle extraction, form evaluation, and scoring.
+Main entry point for video form analysis
 """
+
 from typing import Dict, Any, Optional
 from src.pose.pipeline import process_video
 from src.analysis.form_rules import evaluate_form
@@ -12,21 +11,18 @@ from src.analysis.models import FormResult
 
 
 def transform_angles(angles_data: list) -> Dict[str, list]:
-    """Transform per-frame angle data to per-angle lists.
+    """Transform per-frame angle data to per-angle lists
 
     Converts from pipeline format (list of dicts per frame) to
-    form rules format (dict of lists per angle).
+    form rules format (dict of lists per angle)
 
     Args:
-        angles_data: List of dicts from process_video(), each with frame angles
+        angles_data (list): List of dicts from process_video(), each with frame angles
 
     Returns:
-        Dict mapping angle names to lists of values across all frames
-
-    Example:
-        Input:  [{"frame": 1, "knee_left": 165.3}, {"frame": 2, "knee_left": 158.1}]
-        Output: {"knee_left": [165.3, 158.1]}
+        Dict[str, list]: Dict mapping angle names to lists of values across frames
     """
+
     if not angles_data:
         return {}
 
@@ -51,24 +47,23 @@ def analyze_video(
     visualize: bool = True,
     min_visibility: float = 0.7
 ) -> Dict[str, Any]:
-    """Analyze squat form from video file.
+    """Analyze squat form from video file
 
     End-to-end pipeline that processes video, evaluates form against
-    research-backed rules, and generates actionable feedback.
+    research-backed rules, and generates actionable feedback
 
     Args:
-        video_path: Path to input video file
-        output_path: Optional path to save annotated video
-        frame_skip: Number of frames to skip (0 = process all)
-        visualize: Whether to draw pose skeleton on output video
-        min_visibility: Minimum landmark visibility threshold (0.0-1.0)
+        video_path (str): Path to input video file
+        output_path (Optional[str]): Optional path to save annotated video
+        frame_skip (int): Number of frames to skip (0 = process all)
+        visualize (bool): Whether to draw pose skeleton on output video
+        min_visibility (float): Minimum landmark visibility threshold (0.0-1.0)
 
     Returns:
-        Dict containing:
-        - 'form_result': FormResult object with score, violations, feedback
-        - 'pipeline_data': Raw data from pose pipeline (angles, metadata, etc.)
+        Dict[str, Any]: Dict containing form_result and pipeline_data
     """
-    # Step 1: Run pose detection and angle extraction
+
+    # Run pose detection and angle extraction
     pipeline_data = process_video(
         video_path=video_path,
         output_path=output_path,
@@ -77,20 +72,20 @@ def analyze_video(
         min_visibility=min_visibility
     )
 
-    # Step 2: Transform angle data for analysis
+    # Transform angle data for analysis
     angles_dict = transform_angles(pipeline_data['angles'])
 
-    # Step 3: Evaluate form rules
+    # Evaluate form rules
     violations = evaluate_form(angles_dict)
 
-    # Step 4: Calculate score
+    # Calculate score
     score = calculate_score(violations)
 
-    # Step 5: Generate feedback
+    # Generate feedback
     feedback_items = generate_feedback(violations, max_items=5)
     summary = generate_summary(violations, score)
 
-    # Step 6: Build result object
+    # Build result object
     form_result = FormResult(
         score=score,
         violations=violations,

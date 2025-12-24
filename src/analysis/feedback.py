@@ -1,6 +1,7 @@
 """
 Feedback generation for squat form analysis
 """
+
 from typing import List
 from .models import FormViolation, Severity
 
@@ -17,18 +18,18 @@ SEVERITY_ORDER = {
 
 
 def generate_feedback(violations: List[FormViolation], max_items: int = MAX_FEEDBACK_ITEMS) -> List[str]:
-    """Generate prioritized feedback from violations.
+    """Generate prioritized feedback from violations
 
-    Filters to failed violations, sorts by severity (critical first),
-    and returns top N feedback messages.
+    Filters to failed violations, sorts by severity, and returns top N messages
 
     Args:
         violations (List[FormViolation]): All form violations
-        max_items (int): Maximum feedback items to return (default: 5)
+        max_items (int): Maximum feedback items to return (default 5)
 
     Returns:
         List[str]: Prioritized feedback messages
     """
+
     # Filter to only failed violations
     failed = [v for v in violations if not v.passed]
 
@@ -46,7 +47,7 @@ def generate_feedback(violations: List[FormViolation], max_items: int = MAX_FEED
 
 
 def generate_summary(violations: List[FormViolation], score: int) -> str:
-    """Generate overall summary message.
+    """Generate overall summary message
 
     Args:
         violations (List[FormViolation]): All violations
@@ -55,25 +56,26 @@ def generate_summary(violations: List[FormViolation], score: int) -> str:
     Returns:
         str: Summary message based on score and critical violations
     """
+
     # Check for critical safety issues
     critical_violations = [v for v in violations if v.severity == Severity.CRITICAL and not v.passed]
 
     if critical_violations:
-        return "Critical safety issues detected - address immediately"
+        return 'Critical safety issues detected - address immediately'
 
     # Score-based summary
     if score >= 90:
-        return "Excellent form! Keep it up."
+        return 'Excellent form! Keep it up.'
     elif score >= 75:
-        return "Good form with room for improvement."
+        return 'Good form with room for improvement.'
     elif score >= 60:
-        return "Fair form - address the issues below."
+        return 'Fair form - address the issues below.'
     else:
-        return "Form needs significant improvement for safety."
+        return 'Form needs significant improvement for safety.'
 
 
 def generate_positive_feedback(violations: List[FormViolation]) -> List[str]:
-    """Generate positive feedback for aspects that passed.
+    """Generate positive feedback for aspects that passed
 
     Args:
         violations (List[FormViolation]): All violations
@@ -81,6 +83,7 @@ def generate_positive_feedback(violations: List[FormViolation]) -> List[str]:
     Returns:
         List[str]: Positive feedback messages (limited to 3)
     """
+
     passed = [v for v in violations if v.passed]
 
     if not passed:
@@ -93,7 +96,7 @@ def generate_positive_feedback(violations: List[FormViolation]) -> List[str]:
 
 
 def format_feedback_numbered(feedback: List[str]) -> List[str]:
-    """Add numbering to feedback list.
+    """Add numbering to feedback list
 
     Args:
         feedback (List[str]): List of feedback strings
@@ -101,19 +104,20 @@ def format_feedback_numbered(feedback: List[str]) -> List[str]:
     Returns:
         List[str]: Numbered feedback
     """
-    return [f"{i+1}. {item}" for i, item in enumerate(feedback)]
+
+    return [f'{i+1}. {item}' for i, item in enumerate(feedback)]
 
 
 def categorize_feedback(violations: List[FormViolation]) -> dict:
-    """Group feedback by severity category.
+    """Group feedback by severity category
 
     Args:
         violations (List[FormViolation]): All violations
 
     Returns:
         dict: Categorized feedback
-            Example: {'critical_issues': [...], 'improvements': [...], 'optimizations': [...]}
     """
+
     categorized = {
         'critical_issues': [],
         'improvements': [],
