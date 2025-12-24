@@ -44,6 +44,12 @@ ANGLES_CONFIG = [
         'landmarks': [11, 23, 27],  # Shoulder → Hip → Ankle
         'color': (255, 0, 255),     # Magenta
     },
+    {
+        'name': 'back_right',
+        'display': 'R Back',
+        'landmarks': [12, 24, 28],  # Shoulder → Hip → Ankle
+        'color': (255, 0, 255),     # Magenta
+    },
 ]
 
 def process_video(
@@ -90,8 +96,10 @@ def process_video(
         """
         return all(landmarks[i].visibility >= min_visibility for i in indices)
 
+    # Loop through all frames in the cideo
     for frame in iterate_frames(video_path, frame_skip):
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        # Gets MediaPipe pose_landmarks object
         pose_landmarks = detector.detect_with_landmarks(frame_rgb)
         
         if not pose_landmarks:
