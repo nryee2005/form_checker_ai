@@ -2,7 +2,7 @@
 Main entry point for video form analysis
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 from src.pose.pipeline import process_video
 from src.analysis.form_rules import evaluate_form
 from src.analysis.scoring import calculate_score, is_passing
@@ -38,6 +38,75 @@ def transform_angles(angles_data: list) -> Dict[str, list]:
         ]
 
     return transformed
+
+
+def validate_pose_visibility(pipeline_data: Dict[str, Any],
+                            required_visibility: float = 0.5) -> Tuple[bool, str]:
+    """Check if required landmarks (shoulders) are visible throughout video
+
+    Validates that shoulder landmarks are detected in enough frames to
+    perform accurate form analysis. For barbell squats, shoulders may be
+    partially obstructed by the bar, so we only require 50% visibility.
+    Bilateral averaging handles cases where one shoulder is blocked.
+
+    Args:
+        pipeline_data (Dict[str, Any]): Output from process_video() containing angles
+        required_visibility (float): Minimum fraction of frames that need shoulders (default 0.5)
+
+    Returns:
+        Tuple[bool, str]: (is_valid, error_message)
+            - is_valid: True if shoulders visible enough, False otherwise
+            - error_message: Empty string if valid, helpful message if invalid
+
+    Example:
+        >>> result = process_video("squat.mp4")
+        >>> is_valid, msg = validate_pose_visibility(result['pipeline_data'])
+        >>> if not is_valid:
+        ...     print(msg)  # "Shoulders not visible in enough frames..."
+    """
+    angles_data = pipeline_data.get('angles', [])
+
+    if not angles_data:
+        return False, (
+            "No pose detected in video. Please ensure:\n"
+            "- A person is clearly visible in the frame\n"
+            "- Lighting is adequate\n"
+            "- Camera is stable"
+        )
+
+    # Check if shoulders are visible by looking for shoulder-dependent angles
+    total_frames = len(angles_data)
+    frames_with_shoulders = 0
+
+    for frame_data in angles_data:
+        # Shoulder landmarks (11, 12) are used in hip and back angles
+        # If these angles exist (not None), shoulders were detected
+        has_shoulder_angles = (
+            frame_data.get('hip_left') is not None or
+            frame_data.get('hip_right') is not None or
+            frame_data.get('back_left') is not None or
+            frame_data.get('back_right') is not None
+        )
+
+        if has_shoulder_angles:
+            frames_with_shoulders += 1
+
+    # Calculate visibility percentage
+    shoulder_visibility_pct = frames_with_shoulders / total_frames if total_frames > 0 else 0
+
+    if shoulder_visibility_pct < required_visibility:
+        return False, (
+            f"Shoulders not visible in enough frames ({shoulder_visibility_pct:.0%} detected, need {required_visibility:.0%}). "
+            f"\n\nFor accurate analysis, please:\n"
+            f"- BODYWEIGHT SQUATS: Record from the side at 90° angle\n"
+            f"- BARBELL SQUATS: Record from a 45° diagonal angle (barbell blocks pure side view)\n"
+            f"- Include full body from head to feet in frame\n"
+            f"- At least one shoulder should be visible throughout the movement\n"
+            f"- Stand 6-8 feet from the camera\n"
+            f"- Use good lighting (avoid backlighting)"
+        )
+
+    return True, ""
 
 
 def analyze_video(

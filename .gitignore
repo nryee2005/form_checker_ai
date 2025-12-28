@@ -64,6 +64,9 @@ temp/
 tmp/
 .env
 
+# Learning/practice files
+learning/
+
 # Research papers (don't commit PDFs)
 research/biomechanics/papers/*.pdf
 

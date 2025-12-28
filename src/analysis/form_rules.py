@@ -7,32 +7,36 @@ IJSPT 2024;19(4):490-501.
 """
 
 from typing import Dict, List, Tuple
+import numpy as np
 from .models import FormViolation, Severity
 
 # Spine neutral thresholds
 SPINE_NEUTRAL_CONFIG = {
     'max_sudden_change': 20,
     'max_total_range': 35,
-    'butt_wink_hip_threshold': 60,
-    'butt_wink_back_change': 30,
-    'min_consecutive_frames': 2,
+    'butt_wink_hip_threshold': 45,  # Relaxed from 60° to allow ATG squats
+    'butt_wink_back_change': 35,     # Slightly increased to 35° for deep squat variations
+    'min_consecutive_frames': 5,
 }
 
 # Squat depth thresholds (knee angle)
+# ATG (Ass-To-Grass): 20-40°
+# Deep squat: 40-60°
+# Parallel: 60-100°
 SQUAT_DEPTH_CONFIG = {
     'ideal_min': 60,
     'ideal_max': 100,
-    'acceptable_min': 40,
+    'acceptable_min': 20,      # Lowered from 40° to allow ATG squats
     'acceptable_max': 120,
-    'danger_threshold': 40,
+    'danger_threshold': 15,    # Lowered from 40° - only flag if extreme
 }
 
 # Hip angle thresholds
 HIP_ANGLE_CONFIG = {
     'ideal_min': 70,
     'ideal_max': 110,
-    'watch_threshold': 60,
-    'danger_threshold': 40,
+    'watch_threshold': 50,     # Relaxed from 60° for ATG variations
+    'danger_threshold': 25,    # Lowered from 40° to allow deep hip flexion
 }
 
 # Trunk inclination thresholds (from vertical)
@@ -72,6 +76,40 @@ def _average_bilateral(left: List, right: List) -> List:
         else:
             result.append(None)
     return result
+
+
+def _get_robust_minimum(values: List, percentile: float = 5.0) -> float:
+    """Get robust minimum using percentile to ignore detection errors
+
+    Instead of using min() which is sensitive to single-frame errors,
+    uses the Nth percentile (default 5th) as a more robust estimate
+    of the minimum angle achieved during the squat.
+
+    Args:
+        values (List): List of angle measurements (may contain None)
+        percentile (float): Percentile to use (default 5.0 = 5th percentile)
+
+    Returns:
+        float: Robust minimum angle value
+
+    Example:
+        >>> angles = [90, 85, 80, 75, 70, 65, 60, 5]  # 5° is detection error
+        >>> min(angles)  # 5° - wrong!
+        5
+        >>> _get_robust_minimum(angles, percentile=5)  # ~60° - correct!
+        60.5
+    """
+    valid = [x for x in values if x is not None]
+
+    if not valid:
+        return None
+
+    # If very few samples, fall back to min
+    if len(valid) < 10:
+        return min(valid)
+
+    # Use percentile for robustness
+    return np.percentile(valid, percentile)
 
 
 def _filter_outliers(values: List, percentile_range: float = 0.1) -> List:
@@ -208,22 +246,23 @@ def check_spine_neutral(angles: Dict[str, List[float]]) -> List[FormViolation]:
         hip_angles = []
 
     if hip_angles:
-        valid_hip = [x for x in hip_angles if x is not None]
-        valid_back = [x for x in back_angles if x is not None]
+        # Use robust statistics to avoid false positives from detection errors
+        min_hip = _get_robust_minimum(hip_angles, percentile=5.0)
 
-        if valid_hip and valid_back:
-            min_hip = min(valid_hip)
-            back_range = max(valid_back) - min(valid_back)
+        valid_back = [x for x in back_angles if x is not None]
+        if min_hip is not None and valid_back and len(valid_back) >= 10:
+            # Use 5th-95th percentile range for robustness
+            back_range = np.percentile(valid_back, 95) - np.percentile(valid_back, 5)
 
             # Butt wink = deep hip flexion + large back angle change
             if (min_hip < SPINE_NEUTRAL_CONFIG['butt_wink_hip_threshold'] and
                 back_range > SPINE_NEUTRAL_CONFIG['butt_wink_back_change']):
                 violations.append(FormViolation(
                     rule_name='butt_wink',
-                    severity=Severity.CRITICAL,
+                    severity=Severity.HIGH,
                     passed=False,
-                    score_penalty=25,
-                    feedback=f'Butt wink detected - squatting beyond hip mobility (hip: {min_hip:.0f}°, back change: {back_range:.0f}°)',
+                    score_penalty=20,
+                    feedback=f'Butt wink detected - squatting beyond current hip mobility (hip: {min_hip:.0f}°, back change: {back_range:.0f}°). Consider working on hip mobility or reducing depth slightly',
                     details={
                         'min_hip_angle': min_hip,
                         'back_range': back_range,
@@ -234,8 +273,9 @@ def check_spine_neutral(angles: Dict[str, List[float]]) -> List[FormViolation]:
 
     # Check 3: Excessive total range
     valid_back = [x for x in back_angles if x is not None]
-    if valid_back:
-        back_range = max(valid_back) - min(valid_back)
+    if valid_back and len(valid_back) >= 10:
+        # Use 5th-95th percentile range to ignore outliers
+        back_range = np.percentile(valid_back, 95) - np.percentile(valid_back, 5)
         if back_range > SPINE_NEUTRAL_CONFIG['max_total_range']:
             violations.append(FormViolation(
                 rule_name='excessive_spine_movement',
@@ -276,29 +316,26 @@ def check_squat_depth(angles: Dict[str, List[float]]) -> List[FormViolation]:
     knee_left_filtered = _filter_outliers(knee_left) if knee_left else []
     knee_right_filtered = _filter_outliers(knee_right) if knee_right else []
 
-    # Use minimum of both sides (worse side = more conservative)
+    # Use robust minimum of both sides (handles detection errors)
     if knee_left_filtered and knee_right_filtered:
-        valid_left = [x for x in knee_left_filtered if x is not None]
-        valid_right = [x for x in knee_right_filtered if x is not None]
-        if valid_left and valid_right:
-            min_knee = min(min(valid_left), min(valid_right))
-        elif valid_left:
-            min_knee = min(valid_left)
-        elif valid_right:
-            min_knee = min(valid_right)
+        min_left = _get_robust_minimum(knee_left_filtered, percentile=5.0)
+        min_right = _get_robust_minimum(knee_right_filtered, percentile=5.0)
+
+        if min_left is not None and min_right is not None:
+            min_knee = min(min_left, min_right)  # Take worse side
+        elif min_left is not None:
+            min_knee = min_left
+        elif min_right is not None:
+            min_knee = min_right
         else:
             return violations
     elif knee_left_filtered:
-        valid_left = [x for x in knee_left_filtered if x is not None]
-        if valid_left:
-            min_knee = min(valid_left)
-        else:
+        min_knee = _get_robust_minimum(knee_left_filtered, percentile=5.0)
+        if min_knee is None:
             return violations
     elif knee_right_filtered:
-        valid_right = [x for x in knee_right_filtered if x is not None]
-        if valid_right:
-            min_knee = min(valid_right)
-        else:
+        min_knee = _get_robust_minimum(knee_right_filtered, percentile=5.0)
+        if min_knee is None:
             return violations
     else:
         return violations
@@ -313,13 +350,24 @@ def check_squat_depth(angles: Dict[str, List[float]]) -> List[FormViolation]:
             feedback=f'Perfect depth - thigh parallel to floor ({min_knee:.0f}°)',
             details={'min_knee': min_knee}
         ))
-    elif SQUAT_DEPTH_CONFIG['acceptable_min'] <= min_knee < SQUAT_DEPTH_CONFIG['ideal_min']:
+    elif 40 <= min_knee < SQUAT_DEPTH_CONFIG['ideal_min']:
+        # Deep squat (40-60°)
         violations.append(FormViolation(
             rule_name='depth_deep',
             severity=Severity.LOW,
             passed=True,
             score_penalty=0,
-            feedback=f'Deep squat ({min_knee:.0f}°) - ensure spine stays neutral',
+            feedback=f'Deep squat ({min_knee:.0f}°) - good depth, ensure spine stays neutral',
+            details={'min_knee': min_knee}
+        ))
+    elif SQUAT_DEPTH_CONFIG['acceptable_min'] <= min_knee < 40:
+        # ATG range (20-40°)
+        violations.append(FormViolation(
+            rule_name='depth_atg',
+            severity=Severity.LOW,
+            passed=True,
+            score_penalty=0,
+            feedback=f'ATG squat ({min_knee:.0f}°) - excellent depth! Ensure you have the mobility and spine stays neutral',
             details={'min_knee': min_knee}
         ))
     elif SQUAT_DEPTH_CONFIG['ideal_max'] < min_knee <= SQUAT_DEPTH_CONFIG['acceptable_max']:
@@ -337,7 +385,7 @@ def check_squat_depth(angles: Dict[str, List[float]]) -> List[FormViolation]:
             severity=Severity.HIGH,
             passed=False,
             score_penalty=15,
-            feedback=f'Squat too deep ({min_knee:.0f}°) - risk of form breakdown and joint stress',
+            feedback=f'Extremely deep squat ({min_knee:.0f}°) - ensure you have exceptional mobility and control',
             details={'min_knee': min_knee}
         ))
     else:
@@ -383,11 +431,10 @@ def check_hip_angle(angles: Dict[str, List[float]]) -> List[FormViolation]:
     else:
         return violations
 
-    valid_hip = [x for x in hip_angles if x is not None]
-    if not valid_hip:
+    # Use robust minimum instead of absolute min
+    min_hip = _get_robust_minimum(hip_angles, percentile=5.0)
+    if min_hip is None:
         return violations
-
-    min_hip = min(valid_hip)
 
     # Evaluate hip flexion zones
     if min_hip >= HIP_ANGLE_CONFIG['ideal_min']:
@@ -402,19 +449,19 @@ def check_hip_angle(angles: Dict[str, List[float]]) -> List[FormViolation]:
     elif HIP_ANGLE_CONFIG['danger_threshold'] <= min_hip < HIP_ANGLE_CONFIG['watch_threshold']:
         violations.append(FormViolation(
             rule_name='hip_angle_deep',
-            severity=Severity.MEDIUM,
-            passed=False,
-            score_penalty=5,
-            feedback=f'Deep hip flexion ({min_hip:.0f}°) - watch for posterior pelvic tilt',
+            severity=Severity.LOW,
+            passed=True,
+            score_penalty=0,
+            feedback=f'Deep hip flexion ({min_hip:.0f}°) - good for ATG squats if spine stays neutral',
             details={'min_hip': min_hip}
         ))
     elif min_hip < HIP_ANGLE_CONFIG['danger_threshold']:
         violations.append(FormViolation(
             rule_name='hip_angle_excessive',
-            severity=Severity.HIGH,
+            severity=Severity.MEDIUM,
             passed=False,
-            score_penalty=15,
-            feedback=f'Excessive hip flexion ({min_hip:.0f}°) - likely causing spine rounding',
+            score_penalty=10,
+            feedback=f'Very deep hip flexion ({min_hip:.0f}°) - monitor for posterior pelvic tilt and spine rounding',
             details={'min_hip': min_hip}
         ))
 

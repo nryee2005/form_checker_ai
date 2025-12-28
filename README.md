@@ -4,9 +4,9 @@
 
 ## Project Status
 
-**Current Phase:** Week 3 - Analysis Engine ✅ COMPLETE
-**Status:** 🚧 In Development
-**Last Updated:** 2025-12-23
+**Current Phase:** Week 4 - API Backend ✅ COMPLETE
+**Status:** 🚧 In Development (Ready for Week 5 - Optimization)
+**Last Updated:** 2025-12-28
 
 ## Overview
 
@@ -21,7 +21,10 @@ An AI-powered workout form analyzer that provides real-time feedback on exercise
 - ✅ Research-backed form evaluation (Straub & Powers 2024)
 - ✅ Actionable feedback generation (0-100 score, prioritized violations)
 - ✅ Outlier filtering for robust analysis
-- ⏳ REST API for video analysis
+- ✅ REST API for video analysis (FastAPI)
+- ✅ Video upload endpoints (JSON response + annotated video download)
+- ✅ Shoulder visibility validation
+- ✅ Temp file cleanup with monitoring
 
 ### Initial Focus
 - **Exercise:** Squat (expanding to others post-MVP)
@@ -92,10 +95,78 @@ form_checker/
 - [x] **Week 1:** Proof of Concept - MediaPipe integration & research ✅
 - [x] **Week 2:** Pose Pipeline - Video processing & angle extraction ✅
 - [x] **Week 3:** Analysis Engine - Form scoring & feedback ✅
-- [ ] **Week 4:** API - FastAPI endpoints
+- [x] **Week 4:** API Backend - FastAPI endpoints & file handling ✅
 - [ ] **Week 5:** Optimization - Performance tuning (**MVP Complete**)
 - [ ] **Week 6:** Frontend - Basic UI
 - [ ] **Week 7:** Documentation - Portfolio ready
+
+## API Usage
+
+### Start the Development Server
+
+```bash
+# Activate virtual environment
+source venv/bin/activate
+
+# Start API server with auto-reload
+uvicorn src.api.main:app --reload
+
+# Server runs at http://localhost:8000
+# API docs at http://localhost:8000/docs (Swagger UI)
+```
+
+### API Endpoints
+
+**GET `/`** - Health check
+- Returns: `{"message": "Form Checker API"}`
+
+**GET `/api/recording-tips`** - Get video recording guidelines
+- Returns: JSON with camera angle, framing, lighting tips
+
+**POST `/api/analyze`** - Analyze squat form (JSON response)
+- Upload: Video file (MP4/MOV, max 100MB)
+- Returns: JSON with score, violations, feedback, metadata
+
+**POST `/api/analyze-with-video`** - Analyze + download annotated video
+- Upload: Video file (MP4/MOV, max 100MB)
+- Returns: MP4 file with pose skeleton and angle overlays
+
+### Example Usage (Python)
+
+```python
+import requests
+
+# Analyze video and get JSON feedback
+with open("squat_video.mp4", "rb") as f:
+    response = requests.post(
+        "http://localhost:8000/api/analyze",
+        files={"video": f}
+    )
+    result = response.json()
+    print(f"Score: {result['form_result']['score']}")
+
+# Download annotated video
+with open("squat_video.mp4", "rb") as f:
+    response = requests.post(
+        "http://localhost:8000/api/analyze-with-video",
+        files={"video": f}
+    )
+    with open("analyzed_output.mp4", "wb") as out:
+        out.write(response.content)
+```
+
+## Testing
+
+```bash
+# Run all tests
+pytest tests/ -v
+
+# Run API tests only
+pytest tests/api/ -v
+
+# Check for orphaned temp files
+python scripts/check_temp_files.py
+```
 
 ## Documentation
 
